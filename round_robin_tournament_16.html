@@ -1,0 +1,110 @@
+
+<style>
+  .rr-wrap { padding: 1rem 0; font-family: var(--font-sans); }
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .controls select { font-size: 14px; padding: 6px 10px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); color: var(--color-text-primary); }
+  .round-title { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px; }
+  .round-block { margin-bottom: 1.5rem; }
+  .match-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+  .match-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 10px 14px; display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .match-num { font-size: 11px; color: var(--color-text-tertiary); min-width: 28px; }
+  .p1 { flex: 1; text-align: right; font-weight: 500; color: var(--color-text-primary); }
+  .vs { font-size: 11px; color: var(--color-text-tertiary); padding: 0 4px; }
+  .p2 { flex: 1; font-weight: 500; color: var(--color-text-primary); }
+  .summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-bottom: 1.5rem; }
+  .stat-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 0.75rem 1rem; }
+  .stat-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 2px; }
+  .stat-val { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+  .filter-active { background: var(--color-background-info) !important; color: var(--color-text-info) !important; border-color: var(--color-border-info) !important; }
+</style>
+<div class="rr-wrap">
+  <h2 class="sr-only">Round robin tournament fixture for 16 players across 15 rounds</h2>
+  <div class="summary" id="summary"></div>
+  <div class="controls">
+    <label style="font-size:13px;color:var(--color-text-secondary);">Filter by player:</label>
+    <select id="playerFilter"><option value="">All players</option></select>
+    <label style="font-size:13px;color:var(--color-text-secondary);">Jump to round:</label>
+    <select id="roundJump"><option value="">— select —</option></select>
+  </div>
+  <div id="rounds"></div>
+</div>
+<script>
+const players = ["Dedu","Rizzo","Noa","Satoru","Ben Dover","Lalu","Ace","Hiro","Nihal","Dollar","Agent","ndh","Noah","Ronoroa","Basi","Afnan","Halifa","Shadu"];
+const n = players.length;
+
+function generateRoundRobin(ps) {
+  const rounds = [];
+  const arr = [...Array(ps.length).keys()];
+  const fixed = arr[0];
+  let rotating = arr.slice(1);
+  for (let r = 0; r < ps.length - 1; r++) {
+    const circle = [fixed, ...rotating];
+    const matches = [];
+    for (let i = 0; i < circle.length / 2; i++) {
+      matches.push([circle[i], circle[circle.length - 1 - i]]);
+    }
+    rounds.push(matches);
+    rotating = [rotating[rotating.length - 1], ...rotating.slice(0, rotating.length - 1)];
+  }
+  return rounds;
+}
+
+const rounds = generateRoundRobin(players);
+const totalMatches = rounds.reduce((a, r) => a + r.length, 0);
+
+const sumEl = document.getElementById('summary');
+sumEl.innerHTML = `
+  <div class="stat-card"><div class="stat-label">Players</div><div class="stat-val">${n}</div></div>
+  <div class="stat-card"><div class="stat-label">Rounds</div><div class="stat-val">${rounds.length}</div></div>
+  <div class="stat-card"><div class="stat-label">Matches</div><div class="stat-val">${totalMatches}</div></div>
+  <div class="stat-card"><div class="stat-label">Per player</div><div class="stat-val">${n - 1}</div></div>
+`;
+
+const pf = document.getElementById('playerFilter');
+players.forEach((p, i) => {
+  const o = document.createElement('option');
+  o.value = i; o.textContent = p;
+  pf.appendChild(o);
+});
+
+const rj = document.getElementById('roundJump');
+rounds.forEach((_, i) => {
+  const o = document.createElement('option');
+  o.value = i; o.textContent = `Round ${i + 1}`;
+  rj.appendChild(o);
+});
+
+rj.addEventListener('change', () => {
+  if (rj.value === '') return;
+  const el = document.getElementById('round-' + rj.value);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  rj.value = '';
+});
+
+function render(filterIdx) {
+  const container = document.getElementById('rounds');
+  container.innerHTML = '';
+  rounds.forEach((matches, ri) => {
+    const filtered = filterIdx === '' ? matches : matches.filter(m => m[0] == filterIdx || m[1] == filterIdx);
+    if (filtered.length === 0) return;
+    const block = document.createElement('div');
+    block.className = 'round-block';
+    block.id = 'round-' + ri;
+    block.innerHTML = `<p class="round-title">Round ${ri + 1}</p>`;
+    const grid = document.createElement('div');
+    grid.className = 'match-grid';
+    filtered.forEach((m, mi) => {
+      const card = document.createElement('div');
+      card.className = 'match-card';
+      const globalNum = rounds.slice(0, ri).reduce((a, r) => a + r.length, 0) + matches.indexOf(m) + 1;
+      card.innerHTML = `<span class="match-num">#${globalNum}</span><span class="p1">${players[m[0]]}</span><span class="vs">vs</span><span class="p2">${players[m[1]]}</span>`;
+      grid.appendChild(card);
+    });
+    block.appendChild(grid);
+    container.appendChild(block);
+  });
+}
+
+pf.addEventListener('change', () => render(pf.value));
+render('');
+</script>
